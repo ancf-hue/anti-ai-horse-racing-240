@@ -135,9 +135,129 @@
       #jumpBtn span { font-size: 18px; } .chip { padding: 5px 10px; }
     }
     @supports (-webkit-touch-callout: none) { #menu, #finish { min-height: -webkit-fill-available; } }
+
+    /* === СТРАНИЦА ОШИБКИ WebGL === */
+    #webgl-error {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: linear-gradient(135deg, #1a0a0a 0%, #2a1a12 50%, #1c2a12 100%);
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      font-family: Rubik, sans-serif;
+    }
+    #webgl-error.active {
+      display: flex;
+    }
+    #webgl-error .error-box {
+      max-width: 520px;
+      width: 100%;
+      background: rgba(22, 15, 8, .95);
+      border-top: 6px solid #ff3b30;
+      padding: 36px 32px 40px;
+      border-radius: 12px;
+      box-shadow: 0 30px 80px rgba(0,0,0,.8);
+      text-align: center;
+    }
+    #webgl-error .error-icon {
+      font-size: 64px;
+      margin-bottom: 12px;
+      display: block;
+    }
+    #webgl-error h2 {
+      font-family: 'Russo One';
+      font-size: clamp(24px, 5vw, 32px);
+      color: #ff3b30;
+      margin-bottom: 12px;
+    }
+    #webgl-error p {
+      font-size: 15px;
+      line-height: 1.7;
+      color: #dbeef3;
+      margin-bottom: 8px;
+    }
+    #webgl-error .error-list {
+      text-align: left;
+      padding: 14px 18px;
+      background: rgba(255, 255, 255, .05);
+      border-radius: 8px;
+      margin: 14px 0 18px;
+      font-size: 14px;
+      line-height: 2;
+    }
+    #webgl-error .error-list li {
+      list-style: none;
+    }
+    #webgl-error .error-list li::before {
+      content: "• ";
+      color: #ffd23f;
+    }
+    #webgl-error .browsers {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 16px 0 20px;
+    }
+    #webgl-error .browsers a {
+      display: inline-block;
+      padding: 8px 18px;
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.15);
+      border-radius: 8px;
+      color: #fff;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+      transition: background .2s;
+    }
+    #webgl-error .browsers a:hover {
+      background: rgba(255, 210, 63, .15);
+      border-color: #ffd23f;
+    }
+    #webgl-error .retry-btn {
+      background: #ffd23f;
+      color: #160f08;
+      border: none;
+      padding: 14px 40px;
+      font-family: 'Russo One';
+      font-size: 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 0 #b98f14;
+      transition: transform .1s, box-shadow .1s;
+    }
+    #webgl-error .retry-btn:active {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 #b98f14;
+    }
   </style>
 </head>
 <body>
+
+<!-- СТРАНИЦА ОШИБКИ WebGL -->
+<div id="webgl-error">
+  <div class="error-box">
+    <span class="error-icon">🎮</span>
+    <h2>⚠️ ТРЕБУЕТСЯ 3D-ГРАФИКА</h2>
+    <p>Ваш браузер <strong>не поддерживает WebGL</strong> — технологию, необходимую для запуска этой 3D-игры.</p>
+    <div class="error-list">
+      <li>🔄 <strong>Обновите браузер</strong> до последней версии</li>
+      <li>⚙️ Включите <strong>аппаратное ускорение</strong> в настройках</li>
+      <li>🔓 Отключите блокировщики рекламы для этого сайта</li>
+    </div>
+    <p style="font-size:13px;opacity:.7;margin-bottom:4px;">Рекомендуемые браузеры:</p>
+    <div class="browsers">
+      <a href="https://www.google.com/chrome/" target="_blank">Chrome</a>
+      <a href="https://www.mozilla.org/firefox/" target="_blank">Firefox</a>
+      <a href="https://www.microsoft.com/edge/" target="_blank">Edge</a>
+    </div>
+    <button class="retry-btn" onclick="location.reload()">🔄 ПРОВЕРИТЬ СНОВА</button>
+  </div>
+</div>
+
 <div id="vig"></div>
 <div id="credit">🐎 СКАЧКИ·240 — HTML5 3D ИГРА</div>
 <img id="logo" src="favicon.ico" alt="" onerror="this.style.display='none'">
@@ -214,9 +334,38 @@
 <script>
   (function() {
     'use strict';
+
+    // ============================================================
+    // 1. ПРОВЕРКА ПОДДЕРЖКИ WebGL
+    // ============================================================
+    function checkWebGL() {
+      try {
+        var canvas = document.createElement('canvas');
+        var gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        return gl !== null;
+      } catch(e) {
+        return false;
+      }
+    }
+
+    if (!checkWebGL()) {
+      document.getElementById('webgl-error').classList.add('active');
+      // Скрываем всё остальное
+      document.querySelectorAll('#vig, #credit, #logo, #hud, #jumpBtn, #cd, #finFlash, #menu, #finish, #sndBtn, canvas').forEach(function(el) {
+        if (el) el.style.display = 'none';
+      });
+      return; // Останавливаем выполнение игры
+    }
+
+    // ============================================================
+    // 2. ПОЛИФИЛЛЫ ДЛЯ СТАРЫХ БРАУЗЕРОВ
+    // ============================================================
     if (!window.requestAnimationFrame) window.requestAnimationFrame = function(cb) { return window.setTimeout(cb, 1000 / 60); };
     if (!window.cancelAnimationFrame) window.cancelAnimationFrame = function(id) { window.clearTimeout(id); };
 
+    // ============================================================
+    // 3. ИГРА
+    // ============================================================
     const RACE = 240, MAXV = 12, DRAG = 0.9, IMP = 2.6, G = 22, JUMPV = 7.6;
     const HX = [40, 80, 120, 160, 200];
     let state = 'menu', raceTime = 0, T = 0, orbitA = 0.6, strokeTimes = [];
@@ -232,9 +381,23 @@
     let races = parseInt(localStorage.getItem('horse_races') || '0', 10) || 0;
     const aiMul = () => Math.min(1.25, 1 + races * 0.04);
 
-    let renderer;
-    try { renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "default" }); } 
-    catch(e) { alert('Ваш браузер не поддерживает WebGL.'); throw e; }
+    // ============================================================
+    // 4. THREE.JS — с защитой от ошибок
+    // ============================================================
+    var renderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ 
+        antialias: true, 
+        powerPreference: "default",
+        failIfMajorPerformanceCaveat: false // Не падать на слабых GPU
+      });
+    } catch(e) {
+      document.getElementById('webgl-error').classList.add('active');
+      document.querySelectorAll('#vig, #credit, #logo, #hud, #jumpBtn, #cd, #finFlash, #menu, #finish, #sndBtn, canvas').forEach(function(el) {
+        if (el) el.style.display = 'none';
+      });
+      return;
+    }
 
     renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
     renderer.setSize(innerWidth, innerHeight);
@@ -554,7 +717,7 @@
       } catch(e) {}
     }
 
-    // === 🛡 ГИБРИДНАЯ ОЧЕРЕДЬ РЕЧИ С ПОДДЕРЖКОЙ КОЛБЭКА ===
+    // === РЕЧЬ С ПОДДЕРЖКОЙ КОЛБЭКА ===
     let ruVoice = null, speechQueue = [], isSpeaking = false, safetyTimer = null;
 
     if ('speechSynthesis' in window) {
@@ -572,10 +735,7 @@
     }
 
     function processSpeechQueue() {
-      if (muted || speechQueue.length === 0) { 
-        unblockMenuBtn(); 
-        return; 
-      }
+      if (muted || speechQueue.length === 0) { unblockMenuBtn(); return; }
       if (isSpeaking) return;
       
       isSpeaking = true;
@@ -588,32 +748,26 @@
         const finish = () => {
           isSpeaking = false;
           if (safetyTimer) { clearTimeout(safetyTimer); safetyTimer = null; }
-          // Вызываем колбэк, если он есть
           if (typeof item.onEnd === 'function') {
-            try { item.onEnd(); } catch(e) { console.warn('Колбэк речи ошибка:', e); }
+            try { item.onEnd(); } catch(e) {}
           }
           if (speechQueue.length === 0) unblockMenuBtn();
           else processSpeechQueue();
         };
         u.onend = finish; u.onerror = finish;
         
-        // 🛡 СТРАХОВОЧНЫЙ ТАЙМЕР: 15 секунд
         safetyTimer = setTimeout(() => {
-          console.warn('Speech synthesis timeout: принудительная разблокировка');
+          console.warn('Speech timeout');
           try { speechSynthesis.cancel(); } catch(e) {}
           finish();
         }, 15000);
         
         speechSynthesis.speak(u);
       } catch (e) {
-        console.warn('Критическая ошибка речи:', e);
         isSpeaking = false;
         if (safetyTimer) { clearTimeout(safetyTimer); safetyTimer = null; }
-        if (typeof item.onEnd === 'function') {
-          try { item.onEnd(); } catch(err) {}
-        }
-        if (speechQueue.length === 0) unblockMenuBtn(); 
-        else processSpeechQueue();
+        if (typeof item.onEnd === 'function') { try { item.onEnd(); } catch(err) {} }
+        if (speechQueue.length === 0) unblockMenuBtn(); else processSpeechQueue();
       }
     }
 
@@ -758,7 +912,6 @@
         $('fNext').textContent = '🔥 В следующей игре соперники будут +' + Math.round((aiMul() - 1) * 100) + '% быстрее';
         renderResults(); resultsShown = true; resTimer = 0; finOvl.classList.remove('hide');
 
-        // 🔒 БЛОКИРУЕМ кнопку
         menuBtnBlocked = true;
         const menuBtn = document.getElementById('menuBtn');
         if (menuBtn) menuBtn.disabled = true;
@@ -770,12 +923,10 @@
         const winSp = (w.you) ? 'Победил ты!' : 'Победил ' + w.speakName + '.';
         const resultText = 'Игра окончена. ' + placeSp + ' ' + winSp;
         
-        // 🔓 ГАРАНТИРОВАННАЯ РАЗБЛОКИРОВКА после завершения речи
         speak(resultText, 1, 1, function() {
           unblockMenuBtn();
         });
         
-        // Дополнительная страховка: если по какой-то причине колбэк не сработает
         setTimeout(function() {
           if (menuBtnBlocked) unblockMenuBtn();
         }, 16000);
