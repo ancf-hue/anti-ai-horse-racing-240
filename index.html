@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>СКАЧКИ·240 — 3D скачки с барьерами</title>
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="shortcut icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --navy: #241a10; --ink: #160f08; --red: #ff3b30; --sun: #ffd23f;
+      --grn: #4cd964; --paper: #fbfbf9;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box }
+    html, body { 
+      height: 100%; overflow: hidden; background: #1c2a12; touch-action: none; 
+      font-family: Rubik, sans-serif; color: var(--paper); -webkit-user-select: none; 
+      user-select: none; -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%;
+    }
+    canvas { display: block; position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; }
+    #vig { position: fixed; inset: 0; pointer-events: none; z-index: 4; background: radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(22, 15, 8, .42) 100%) }
+    #credit { position: fixed; right: 10px; bottom: 8px; z-index: 6; pointer-events: none; font-size: 11px; letter-spacing: .08em; font-weight: 500; color: rgba(251, 251, 249, .85); text-shadow: 0 1px 3px rgba(22, 15, 8, .85) }
+    #logo { position: fixed; left: 50%; top: 10px; transform: translateX(-50%); z-index: 6; width: 58px; height: 58px; border-radius: 14px; pointer-events: none; background: rgba(22, 15, 8, .6); box-shadow: 0 4px 16px rgba(0, 0, 0, .55), 0 0 0 2px rgba(255, 210, 63, .55) }
+    @media (max-width: 640px) { #logo { width: 46px; height: 46px; top: 8px; border-radius: 11px } }
+    #hud { position: fixed; inset: 0; z-index: 5; pointer-events: none; opacity: 0; transition: opacity .6s }
+    #hud.on { opacity: 1 }
+    .chip { background: linear-gradient(180deg, rgba(36, 26, 16, .92), rgba(22, 15, 8, .86)); border: 1px solid rgba(255, 210, 63, .25); border-left: 4px solid var(--sun); padding: 8px 14px; transform: skewX(-8deg); box-shadow: 0 4px 14px rgba(0, 0, 0, .4) }
+    .chip > * { display: inline-block; transform: skewX(8deg) }
+    .lbl { display: block; font-size: 10px; letter-spacing: .2em; color: var(--sun); font-weight: 700 }
+    #topbar { position: absolute; top: 0; left: 0; right: 0; display: flex; gap: 10px; justify-content: space-between; align-items: flex-start; padding: 14px }
+    #time { font-family: 'Russo One'; font-size: clamp(20px, 4.5vw, 30px); letter-spacing: .03em; min-width: 5.4ch }
+    #speedChip { border-left-color: var(--red); text-align: right }
+    #speed { font-family: 'Russo One'; font-size: clamp(18px, 4vw, 26px) }
+    .unit { font-size: 11px; opacity: .75; margin-left: 3px }
+    #sbar { display: block; width: 96px; height: 5px; background: rgba(255, 255, 255, .15); margin-top: 5px }
+    #sbar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--grn), var(--sun)) }
+    #bottombar { position: absolute; bottom: 0; left: 0; right: 0; display: flex; gap: 10px; justify-content: space-between; align-items: flex-end; padding: 16px }
+    .small { font-family: 'Russo One'; font-size: clamp(13px, 2.6vw, 17px) }
+    .small b { color: var(--sun) }
+    #hint { font-family: 'Russo One'; font-size: clamp(13px, 3vw, 18px); color: var(--ink); background: var(--sun); padding: 10px 18px; transform: skewX(-8deg); box-shadow: 0 6px 0 rgba(150, 110, 10, .55) }
+    #hint span { display: inline-block; transform: skewX(8deg) }
+    #hint.beat { animation: beat .22s ease-out }
+    @keyframes beat { 0% { transform: skewX(-8deg) scale(1.18) } 100% { transform: skewX(-8deg) scale(1) } }
+    .key { display: inline-block; background: #241a10; border: 1px solid #5a4630; border-bottom: 3px solid var(--sun); border-radius: 6px; padding: 1px 9px; font-size: .85em; margin: 0 2px }
+    @media (pointer: coarse) { .only-key { display: none } }
+    @media (pointer: fine) { .only-touch { display: none } }
+    @media (max-width: 640px) { #rateChip { display: none } }
+    #jumpBtn { 
+      position: fixed; right: 16px; bottom: 64px; z-index: 12; width: 86px; height: 86px; border-radius: 50%; 
+      background: var(--red); color: #fff; font-family: 'Russo One'; font-size: 13px; line-height: 1.15; 
+      border: 3px solid #fff; box-shadow: 0 6px 0 #8f1610, 0 10px 24px rgba(0, 0, 0, .5); padding: 0; transform: none;
+      touch-action: manipulation; -webkit-touch-callout: none;
+    }
+    #jumpBtn:active { transform: translateY(4px); box-shadow: 0 2px 0 #8f1610 }
+    #jumpBtn span { display: block; font-size: 26px }
+    @media (pointer: fine) { #jumpBtn { display: none } }
+    #cd, #finFlash { position: fixed; inset: 0; z-index: 9; display: flex; align-items: center; justify-content: center; pointer-events: none }
+    #cd span { font-family: 'Russo One'; font-size: clamp(58px, 15vw, 150px); color: #fff; opacity: 0; text-shadow: 0 4px 0 rgba(22, 15, 8, .55), 0 0 34px rgba(255, 210, 63, .65) }
+    #finFlash span { font-family: 'Russo One'; font-size: clamp(60px, 16vw, 160px); color: var(--sun); opacity: 0; text-shadow: 0 5px 0 rgba(22, 15, 8, .6), 0 0 44px rgba(255, 210, 63, .85) }
+    #cd span.pop, #finFlash span.pop { animation: bigpop 1s ease-out forwards }
+    #finFlash span.pop { animation-duration: 1.3s }
+    @keyframes bigpop { 0% { opacity: 0; transform: scale(2.2) } 18% { opacity: 1; transform: scale(1) } 80% { opacity: 1 } 100% { opacity: 0; transform: scale(.9) } }
+    .ovl { position: fixed; inset: 0; z-index: 10; transition: opacity .5s; pointer-events: auto }
+    .ovl.hide { opacity: 0; pointer-events: none }
+    #menu { background: linear-gradient(105deg, rgba(22, 15, 8, .84) 0%, rgba(22, 15, 8, .3) 55%, transparent 75%); display: flex; align-items: flex-end; overflow-y: auto; padding: 20px 0 }
+    #panel { margin: 0 0 4vh 4vw; max-width: 470px; width: min(470px, 92vw); background: linear-gradient(180deg, rgba(36, 26, 16, .95), rgba(22, 15, 8, .95)); border-top: 6px solid var(--sun); padding: 26px 28px 28px; transform: skewX(-2deg); box-shadow: 0 20px 50px rgba(0, 0, 0, .6) }
+    #panel > * { transform: skewX(2deg) }
+    h1 { font-family: 'Russo One'; font-size: clamp(34px, 7vw, 52px); line-height: .95 }
+    h1 em { font-style: normal; color: var(--sun) }
+    .tag { color: var(--sun); letter-spacing: .28em; font-size: 11px; font-weight: 700; margin: 8px 0 14px }
+    .rules { list-style: none; font-size: 14px; line-height: 1.8; margin-bottom: 16px }
+    .rules b { color: var(--sun) }
+    .diffRow { display: flex; gap: 8px; margin-bottom: 18px }
+    .dBtn { flex: 1; font-size: 13px; padding: 10px 4px; background: rgba(255, 255, 255, .08); color: var(--paper); box-shadow: none; border: 1px solid rgba(255, 210, 63, .35); touch-action: manipulation; }
+    .dBtn.sel { background: var(--red); color: #fff; border-color: var(--red); box-shadow: 0 4px 0 rgba(120, 20, 20, .7) }
+    button { 
+      pointer-events: auto; cursor: pointer; font-family: 'Russo One'; font-size: 19px; color: var(--ink); 
+      background: var(--sun); border: none; padding: 14px 34px; transform: skewX(-8deg); 
+      box-shadow: 0 6px 0 #b98f14, 0 12px 24px rgba(0, 0, 0, .5); transition: transform .12s, box-shadow .12s, opacity 0.3s;
+      touch-action: manipulation; -webkit-touch-callout: none;
+    }
+    button span { display: inline-block; transform: skewX(8deg) }
+    button:hover { transform: skewX(-8deg) translateY(-2px) }
+    button:active { transform: skewX(-8deg) translateY(3px); box-shadow: 0 2px 0 #b98f14 }
+    button:disabled { 
+      opacity: .4; pointer-events: none; transform: skewX(-8deg) translateY(3px); box-shadow: 0 2px 0 #b98f14; filter: grayscale(0.5);
+    }
+    #support { margin-top: 18px; padding: 16px 18px 14px; border-radius: 4px; background: linear-gradient(180deg, rgba(255, 210, 63, .06), rgba(255, 59, 48, .04)); border: 1px dashed rgba(255, 210, 63, .45); border-left: 4px solid var(--sun); font-size: 13px; line-height: 1.55; color: #dbeef3 }
+    #support h3 { font-family: 'Russo One'; font-size: 15px; color: var(--sun); letter-spacing: .04em; margin-bottom: 6px }
+    #support p { margin-bottom: 6px }
+    #support .phoneBox { margin: 10px 0 8px; padding: 10px 12px; border-radius: 4px; background: rgba(22, 15, 8, .6); border: 1px solid rgba(255, 210, 63, .3); display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap }
+    #support .phoneNum { font-family: 'Russo One'; font-size: 18px; color: #fff; letter-spacing: .04em; word-break: break-all }
+    #support .copyBtn { pointer-events: auto; cursor: pointer; font-family: 'Russo One'; font-size: 12px; color: var(--ink); background: var(--sun); border: none; padding: 8px 14px; transform: none; box-shadow: 0 3px 0 rgba(150, 110, 10, .6); border-radius: 3px; transition: transform .12s, box-shadow .12s; touch-action: manipulation; }
+    #support .copyBtn:hover { transform: translateY(-1px) }
+    #support .copyBtn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(150, 110, 10, .6) }
+    #support .copyBtn.ok { background: var(--grn); color: #fff }
+    #support .note { font-size: 12px; opacity: .75; margin: 4px 0 10px }
+    #support .thanks { color: var(--sun); font-weight: 700; margin-top: 8px }
+    #support .cat { margin-top: 10px; font-size: 12px; opacity: .9 }
+    #support a { color: var(--sun); text-decoration: none; font-weight: 700; word-break: break-all }
+    #support a:hover { text-decoration: underline }
+    #finish { background: rgba(22, 15, 8, .6); display: flex; align-items: flex-start; justify-content: center; padding-top: 9vh; backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+    #fPanel { max-width: 480px; width: min(480px, 92vw); text-align: center; background: linear-gradient(180deg, rgba(36, 26, 16, .96), rgba(22, 15, 8, .96)); border-top: 6px solid var(--sun); padding: 26px 26px 28px; transform: skewX(-2deg); box-shadow: 0 20px 60px rgba(0, 0, 0, .6) }
+    #fPanel > * { transform: skewX(2deg) }
+    #fTitle { font-family: 'Russo One'; font-size: clamp(24px, 5.5vw, 36px); letter-spacing: .06em; color: var(--sun) }
+    #fTime { font-family: 'Russo One'; font-size: clamp(40px, 9vw, 58px); color: var(--grn); margin: 4px 0 2px; text-shadow: 0 0 26px rgba(76, 217, 100, .5) }
+    #fPlace { font-family: 'Russo One'; font-size: clamp(17px, 4.5vw, 23px); color: var(--sun); margin-bottom: 8px; min-height: 1.3em }
+    #fWinner { margin: 0 0 10px; font-weight: 700; font-size: 15px; letter-spacing: .05em }
+    #fRows { margin: 4px 0 14px; text-align: left }
+    .fRow { display: flex; align-items: center; gap: 10px; padding: 9px 12px; margin-bottom: 6px; background: rgba(255, 255, 255, .05); border-left: 3px solid transparent; transform: skewX(-4deg) }
+    .fRow > * { transform: skewX(4deg) }
+    .fRow.you { background: rgba(255, 210, 63, .13); border-left-color: var(--sun) }
+    .fPos { font-size: 18px; width: 32px; text-align: center }
+    .fName { flex: 1; font-weight: 700; letter-spacing: .05em }
+    .fDot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px }
+    .fT { font-family: 'Russo One'; color: var(--grn) }
+    #fBest { margin: 2px 0 4px; font-size: 14px; opacity: .9 }
+    #fBest.rec { color: var(--sun); font-weight: 700; letter-spacing: .08em }
+    #fStats { font-size: 13px; opacity: .65; margin-bottom: 8px }
+    #fNext { font-size: 12.5px; color: var(--red); margin-bottom: 18px }
+    #sndBtn { 
+      position: fixed; right: 14px; top: 84px; z-index: 12; width: 42px; height: 42px; padding: 0; font-size: 18px; 
+      background: rgba(36, 26, 16, .9); color: var(--paper); box-shadow: 0 3px 0 rgba(0, 0, 0, .6); border: 1px solid rgba(255, 210, 63, .3);
+      touch-action: manipulation;
+    }
+    @media (max-width: 640px) { 
+      #panel { margin: 0 4vw 4vh } #support .phoneNum { font-size: 16px }
+      #jumpBtn { width: 70px; height: 70px; right: 12px; bottom: 50px; font-size: 11px; }
+      #jumpBtn span { font-size: 22px; }
+    }
+    @media (max-width: 400px) {
+      #jumpBtn { width: 60px; height: 60px; right: 8px; bottom: 40px; font-size: 10px; }
+      #jumpBtn span { font-size: 18px; } .chip { padding: 5px 10px; }
+    }
+    @supports (-webkit-touch-callout: none) { #menu, #finish { min-height: -webkit-fill-available; } }
+  </style>
+</head>
+<body>
+<div id="vig"></div>
+<div id="credit">🐎 СКАЧКИ·240 — HTML5 3D ИГРА</div>
+<img id="logo" src="favicon.ico" alt="" onerror="this.style.display='none'">
+
+<div id="hud">
+  <div id="topbar">
+    <div class="chip"><span class="lbl">ВРЕМЯ</span><span id="time">0:00.00</span></div>
+    <div class="chip" id="speedChip"><span class="lbl">СКОРОСТЬ</span>
+      <span id="speed">0</span><span class="unit">км/ч</span><span id="sbar"><i></i></span>
+    </div>
+  </div>
+  <div id="bottombar">
+    <div class="chip small" id="rateChip">ТЕМП <b id="rate">0</b> шаг/мин</div>
+    <div id="hint"><span class="only-key"><span class="key">ПРОБЕЛ</span> — ГАЛОП · <span class="key">↑</span> — ПРЫЖОК</span><span class="only-touch">ТАП — ГАЛОП · КНОПКА — ПРЫЖОК</span></div>
+    <div class="chip small">МЕСТО <b id="pos">3/3</b></div>
+  </div>
+</div>
+
+<button id="jumpBtn"><span>🐎</span>ПРЫЖОК</button>
+<div id="cd"><span id="cdTxt"></span></div>
+<div id="finFlash"><span id="ffTxt">ФИНИШ!</span></div>
+
+<div class="ovl" id="menu">
+  <div id="panel">
+    <h1>СКАЧКИ<em>·240</em></h1>
+    <p class="tag">СТЕПЛЬЧЕЗ · 5 БАРЬЕРОВ</p>
+    <ul class="rules">
+      <li>🖐 <span class="only-key"><span class="key">ПРОБЕЛ</span></span><span class="only-touch">ТАП по экрану</span> — конь скачет <b>быстрее</b></li>
+      <li>🦘 <span class="only-key"><span class="key">↑</span></span><span class="only-touch">Кнопка «ПРЫЖОК»</span> — перепрыгнуть <b>барьер</b></li>
+      <li>💥 Сбил барьер — конь <b>споткнётся</b> и потеряет скорость</li>
+      <li>🔥 С каждой игрой соперники быстрее: сейчас <b id="boostPct">+0%</b></li>
+      <li>💀 На «СЛОЖНЫЙ ×2» соперники скачут <b>в два раза быстрее</b></li>
+      <li>🏁 Одна гонка — одна игра</li>
+    </ul>
+    <div class="diffRow">
+      <button class="dBtn" data-d="easy"><span>ЛЁГКИЙ</span></button>
+      <button class="dBtn" data-d="mid"><span>СРЕДНИЙ</span></button>
+      <button class="dBtn" data-d="hard"><span>СЛОЖНЫЙ ×2</span></button>
+    </div>
+    <button id="startBtn"><span>▶ НА СТАРТ</span></button>
+
+    <div id="support">
+      <h3>🤝 ПОДДЕРЖАТЬ ПРОЕКТ 💙</h3>
+      <p>Приложение бесплатное. Было и останется.</p>
+      <p>Если проект помог вам или вашим близким — можете поддержать разработку добровольным переводом.</p>
+      <div class="phoneBox">
+        <span class="phoneNum" id="phoneNum">📱 8-920-227-56-76</span>
+        <button class="copyBtn" id="copyBtn">📋 Копировать номер</button>
+      </div>
+      <p class="note">✅ Деньги придут мгновенно. Без комиссии. Безопасно.</p>
+      <p class="thanks">❤️ Спасибо за поддержку!</p>
+      <p class="cat">🌟  <a href="https://ancf-hue.github.io/" target="_blank" rel="noopener">https://ancf-hue.github.io/</a><br>Каталог бесплатных офлайн-приложений Anti-AI Shield.</p>
+    </div>
+  </div>
+</div>
+
+<div class="ovl hide" id="finish">
+  <div id="fPanel">
+    <div id="fTitle">ИГРА ОКОНЧЕНА</div>
+    <div id="fTime">0:00.00</div>
+    <div id="fPlace"></div>
+    <div id="fWinner"></div>
+    <div id="fRows"></div>
+    <div id="fBest"></div>
+    <div id="fStats"></div>
+    <div id="fNext"></div>
+    <button id="menuBtn"><span>🏠 В МЕНЮ</span></button>
+  </div>
+</div>
+
+<button id="sndBtn">🔊</button>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+  (function() {
+    'use strict';
+    if (!window.requestAnimationFrame) window.requestAnimationFrame = function(cb) { return window.setTimeout(cb, 1000 / 60); };
+    if (!window.cancelAnimationFrame) window.cancelAnimationFrame = function(id) { window.clearTimeout(id); };
+
+    const RACE = 240, MAXV = 12, DRAG = 0.9, IMP = 2.6, G = 22, JUMPV = 7.6;
+    const HX = [40, 80, 120, 160, 200];
+    let state = 'menu', raceTime = 0, T = 0, orbitA = 0.6, strokeTimes = [];
+    let resultsShown = false, resTimer = 0, menuBtnBlocked = false;
+
+    const DIFFS = {
+      easy: { name: 'ЛЁГКИЙ', int: .5, imp: 2.6, rubber: 26, fail: .18 },
+      mid: { name: 'СРЕДНИЙ', int: .3, imp: 3.0, rubber: 15, fail: .08 },
+      hard: { name: 'СЛОЖНЫЙ ×2', int: .19, imp: 3.4, rubber: 3, fail: .02 },
+    };
+    let diff = localStorage.getItem('horse_diff') || 'mid';
+    if (!DIFFS[diff]) diff = 'mid';
+    let races = parseInt(localStorage.getItem('horse_races') || '0', 10) || 0;
+    const aiMul = () => Math.min(1.25, 1 + races * 0.04);
+
+    let renderer;
+    try { renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "default" }); } 
+    catch(e) { alert('Ваш браузер не поддерживает WebGL.'); throw e; }
+
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    if (renderer.outputEncoding !== undefined) renderer.outputEncoding = THREE.sRGBEncoding;
+    document.body.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(0xe8f0d8, 70, 260);
+    const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.1, 700);
+    camera.fov = 62; camera.updateProjectionMatrix();
+
+    scene.add(new THREE.HemisphereLight(0xf0f6d8, 0x3a4a2a, 1));
+    const sun = new THREE.DirectionalLight(0xfff0d0, 1.25);
+    sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024);
+    Object.assign(sun.shadow.camera, { left: -25, right: 25, top: 25, bottom: -25, near: 1, far: 120 });
+    sun.shadow.bias = -0.0004; scene.add(sun); scene.add(sun.target);
+
+    function canvasTex(w, h, fn) {
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      fn(c.getContext('2d'), w, h);
+      const t = new THREE.CanvasTexture(c);
+      if (t.encoding !== undefined) t.encoding = THREE.sRGBEncoding;
+      return t;
+    }
+    const skyTex = canvasTex(512, 512, (x, w, h) => {
+      const g = x.createLinearGradient(0, 0, 0, h);
+      g.addColorStop(0, '#2e7fc4'); g.addColorStop(.45, '#79c3e8'); g.addColorStop(.75, '#eef4d8'); g.addColorStop(1, '#e0ecc0');
+      x.fillStyle = g; x.fillRect(0, 0, w, h);
+    });
+    const dotTex = canvasTex(64, 64, (x, w, h) => {
+      const g = x.createRadialGradient(32, 32, 2, 32, 32, 30);
+      g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+      x.fillStyle = g; x.fillRect(0, 0, w, h);
+    });
+    const turfTex = canvasTex(512, 512, (x, w, h) => {
+      x.fillStyle = '#5a9a44'; x.fillRect(0, 0, w, h);
+      for (let i = 0; i < 5000; i++) {
+        x.fillStyle = `rgba(${50 + Math.random() * 70},${110 + Math.random() * 70},${40 + Math.random() * 40},${.2 + Math.random() * .3})`;
+        x.fillRect(Math.random() * w, Math.random() * h, 2, 3);
+      }
+      x.fillStyle = 'rgba(255,255,255,.85)';
+      for (const yy of [h / 6, h / 2, 5 * h / 6]) x.fillRect(0, yy - 3, w, 6);
+    });
+    turfTex.wrapS = turfTex.wrapT = THREE.RepeatWrapping; turfTex.repeat.set((RACE + 80) / 8, 1);
+    const grassTex = canvasTex(256, 256, (x, w, h) => {
+      x.fillStyle = '#4a8a3a'; x.fillRect(0, 0, w, h);
+      for (let i = 0; i < 2500; i++) {
+        x.fillStyle = `rgba(${40 + Math.random() * 60},${80 + Math.random() * 70},${30 + Math.random() * 40},${.3 + Math.random() * .4})`;
+        x.fillRect(Math.random() * w, Math.random() * h, 1.5, 3);
+      }
+    });
+    grassTex.wrapS = grassTex.wrapT = THREE.RepeatWrapping; grassTex.repeat.set(40, 40);
+
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(350, 24, 14), new THREE.MeshBasicMaterial({ map: skyTex, side: THREE.BackSide, fog: false, depthWrite: false }));
+    dome.position.x = RACE / 2; scene.add(dome);
+
+    const track = new THREE.Mesh(new THREE.PlaneGeometry(RACE + 80, 7.2), new THREE.MeshStandardMaterial({ map: turfTex, roughness: .95 }));
+    track.rotation.x = -Math.PI / 2; track.position.set(RACE / 2 + 10, 0, 0); track.receiveShadow = true; scene.add(track);
+    const grass = new THREE.Mesh(new THREE.PlaneGeometry(RACE + 300, 220), new THREE.MeshStandardMaterial({ map: grassTex, roughness: .95 }));
+    grass.rotation.x = -Math.PI / 2; grass.position.set(RACE / 2, -.02, 0); grass.receiveShadow = true; scene.add(grass);
+
+    {
+      const postMat = new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: .6 });
+      const railMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .5 });
+      for (const side of [-1, 1]) {
+        for (let x = -10; x < RACE + 20; x += 5) {
+          const p = new THREE.Mesh(new THREE.CylinderGeometry(.05, .05, 1, 6), postMat);
+          p.position.set(x, .5, side * 4); scene.add(p);
+        }
+        for (const yy of [.7, 1]) {
+          const r = new THREE.Mesh(new THREE.CylinderGeometry(.03, .03, RACE + 30, 6), railMat);
+          r.rotation.z = Math.PI / 2; r.position.set(RACE / 2 + 5, yy, side * 4); scene.add(r);
+        }
+      }
+    }
+
+    const hurdles = [];
+    {
+      const barTex = canvasTex(128, 32, (x, w, h) => {
+        for (let i = 0; i < 8; i++) { x.fillStyle = i % 2 ? '#ff3b30' : '#ffffff'; x.fillRect(i * 16, 0, 16, h); }
+      });
+      [0, -2.4, 2.4].forEach((lz, li) => {
+        hurdles[li] = [];
+        HX.forEach(hx => {
+          const g = new THREE.Group(); g.position.set(hx, 0, lz); scene.add(g);
+          const postMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: .6 });
+          for (const s of [-1, 1]) {
+            const p = new THREE.Mesh(new THREE.CylinderGeometry(.04, .05, 1, 6), postMat);
+            p.position.set(0, .5, s * .9); g.add(p);
+          }
+          const bar = new THREE.Mesh(new THREE.BoxGeometry(.09, .16, 1.9), new THREE.MeshBasicMaterial({ map: barTex }));
+          bar.position.y = .95; g.add(bar);
+          const base = new THREE.Mesh(new THREE.BoxGeometry(.5, .05, 1.9), postMat);
+          base.position.y = .03; g.add(base);
+          hurdles[li].push({ g, fall: 0, knocked: false });
+        });
+      });
+    }
+
+    {
+      const d = new THREE.Object3D(), pinePos = [], leafPos = [];
+      for (let x = -30; x < RACE + 70; x += 3.4) {
+        for (const side of [-1, 1]) {
+          if (Math.random() < .7) {
+            const z = side * (8 + Math.random() * 16);
+            if (Math.random() < .55) pinePos.push([x, z, .8 + Math.random() * .7]);
+            else leafPos.push([x, z, .8 + Math.random() * .7]);
+          }
+        }
+      }
+      const trunkGeo = new THREE.CylinderGeometry(.12, .2, 1.8, 6);
+      const pineGeo = new THREE.ConeGeometry(1.2, 3.6, 8);
+      const leafGeo = new THREE.SphereGeometry(1.3, 8, 6);
+      const trunkMat = new THREE.MeshStandardMaterial({ color: 0x7a4a2a, roughness: .9 });
+      const pineMat = new THREE.MeshStandardMaterial({ color: 0x1e6a34, roughness: .85 });
+      const leafMat = new THREE.MeshStandardMaterial({ color: 0x4a9a3a, roughness: .85 });
+
+      function inst(geo, mat, arr, y) {
+        if (!arr.length) return;
+        const im = new THREE.InstancedMesh(geo, mat, arr.length);
+        arr.forEach((p, k) => { d.position.set(p[0], y * p[2], p[1]); d.scale.setScalar(p[2]); d.updateMatrix(); im.setMatrixAt(k, d.matrix); });
+        im.castShadow = true; scene.add(im);
+      }
+      inst(trunkGeo, trunkMat, pinePos.concat(leafPos), .9);
+      inst(pineGeo, pineMat, pinePos, 2.6);
+      inst(leafGeo, leafMat, leafPos, 2.4);
+    }
+
+    for (const mx of [50, 100, 150, 200]) {
+      const tex = canvasTex(128, 96, (x, w, h) => {
+        x.fillStyle = '#ffd23f'; x.fillRect(0, 0, w, h);
+        x.strokeStyle = '#111'; x.lineWidth = 6; x.strokeRect(3, 3, w - 6, h - 6);
+        x.fillStyle = '#111'; x.font = 'bold 40px sans-serif'; x.textAlign = 'center';
+        x.fillText(mx + ' м', w / 2, 60);
+      });
+      const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.6), new THREE.MeshBasicMaterial({ map: tex }));
+      sign.position.set(mx, 1.4, -6.4); sign.rotation.y = Math.PI; scene.add(sign);
+    }
+
+    const lineMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .6 });
+    const startLine = new THREE.Mesh(new THREE.PlaneGeometry(.5, 7.2), lineMat);
+    startLine.rotation.x = -Math.PI / 2; startLine.position.set(0, .012, 0); scene.add(startLine);
+    const finTex = canvasTex(64, 64, (x, w, h) => {
+      x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.fillStyle = '#000';
+      for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) if ((i + j) % 2) x.fillRect(i * 8, j * 8, 8, 8);
+    });
+    const finLine = new THREE.Mesh(new THREE.PlaneGeometry(1, 7.2), new THREE.MeshStandardMaterial({ map: finTex, roughness: .5 }));
+    finLine.rotation.x = -Math.PI / 2; finLine.position.set(RACE, .012, 0); scene.add(finLine);
+    {
+      const poleMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: .5 });
+      for (const side of [-1, 1]) {
+        const p = new THREE.Mesh(new THREE.CylinderGeometry(.14, .14, 6.4, 10), poleMat);
+        p.position.set(RACE, 3.2, side * 5); p.castShadow = true; scene.add(p);
+      }
+      const banTex = canvasTex(512, 96, (x, w, h) => {
+        x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.fillStyle = '#111';
+        for (let i = 0; i < 32; i++) for (let j = 0; j < 6; j++) if ((i + j) % 2) x.fillRect(i * 16, j * 16, 16, 16);
+        x.fillStyle = '#fff'; x.fillRect(0, 24, w, 48); x.fillStyle = '#d21f1f';
+        x.font = 'bold 40px sans-serif'; x.textAlign = 'center'; x.fillText('ФИНИШ', w / 2, 60);
+      });
+      const ban = new THREE.Mesh(new THREE.BoxGeometry(.5, 1.1, 10.8), new THREE.MeshBasicMaterial({ map: banTex }));
+      ban.position.set(RACE, 5.6, 0); scene.add(ban);
+    }
+
+    {
+      const crowdColors = [0xff5a4e, 0xffd23f, 0x4cd964, 0x2a8fff, 0xb06be0, 0xff8f2d, 0x39e2cf, 0xf5f5f5, 0xff7ab0, 0x9dff57];
+      const skinCols = [0xe8b48c, 0xc98d63, 0xf0c9a8, 0x8d5a3b];
+      const bodyGeo = new THREE.BoxGeometry(.55, .75, .45), headGeo = new THREE.BoxGeometry(.3, .3, .3);
+      const buckets = crowdColors.map(() => []), headBuckets = skinCols.map(() => []);
+      for (const side of [-1, 1]) for (let i = 0; i < 4; i++) for (let x = RACE - 30; x < RACE + 10; x += 1.05) {
+        if (Math.random() < .55) {
+          const zz = side * (6 + i * 1.3), yTop = i * .7 + .7;
+          buckets[(Math.random() * crowdColors.length) | 0].push([x, yTop + .375, zz]);
+          headBuckets[(Math.random() * skinCols.length) | 0].push([x, yTop + .9, zz]);
+        }
+      }
+      const d = new THREE.Object3D();
+      buckets.forEach((arr, ci) => {
+        if (!arr.length) return;
+        const im = new THREE.InstancedMesh(bodyGeo, new THREE.MeshLambertMaterial({ color: crowdColors[ci] }), arr.length);
+        arr.forEach((p, k) => { d.position.set(p[0], p[1], p[2]); d.updateMatrix(); im.setMatrixAt(k, d.matrix); });
+        scene.add(im);
+      });
+      headBuckets.forEach((arr, si) => {
+        if (!arr.length) return;
+        const im = new THREE.InstancedMesh(headGeo, new THREE.MeshLambertMaterial({ color: skinCols[si] }), arr.length);
+        arr.forEach((p, k) => { d.position.set(p[0], p[1], p[2]); d.updateMatrix(); im.setMatrixAt(k, d.matrix); });
+        scene.add(im);
+      });
+      const stepMat = new THREE.MeshStandardMaterial({ color: 0x8a8a8a, roughness: .8 });
+      for (const side of [-1, 1]) for (let i = 0; i < 4; i++) {
+        const st = new THREE.Mesh(new THREE.BoxGeometry(45, .4, 1.3), stepMat);
+        st.position.set(RACE - 10, i * .7 + .5, side * (6 + i * 1.3)); scene.add(st);
+      }
+    }
+
+    const eyeWhiteM = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .25 });
+    const pupilM = new THREE.MeshStandardMaterial({ color: 0x101820, roughness: .3 });
+
+    function makeHorse(coat, silk, cap, skin) {
+      const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+      const cm = new THREE.MeshStandardMaterial({ color: coat, roughness: .5 });
+      const jm = new THREE.MeshStandardMaterial({ color: silk, roughness: .5 });
+      const sm = new THREE.MeshStandardMaterial({ color: skin, roughness: .55 });
+      const darkM = new THREE.MeshStandardMaterial({ color: 0x2a1a10, roughness: .7 });
+      const add = (geo, mat, p, s, par) => {
+        const m = new THREE.Mesh(geo, mat);
+        if (p) m.position.set(...p); if (s) m.scale.set(...s);
+        m.castShadow = true; (par || body).add(m); return m;
+      };
+      add(new THREE.SphereGeometry(.5, 14, 10), cm, [0, 1.05, 0], [.62, .72, 1.5]);
+      const neck = add(new THREE.CylinderGeometry(.14, .2, .7, 8), cm, [0, 1.45, .75]); neck.rotation.x = .7;
+      const headG = new THREE.Group(); headG.position.set(0, 1.75, 1.05); body.add(headG);
+      const hd = add(new THREE.BoxGeometry(.22, .24, .5), cm, [0, 0, .1], null, headG); hd.rotation.x = .35;
+      add(new THREE.BoxGeometry(.16, .16, .25), cm, [0, -.1, .35], null, headG);
+      for (const s of [-1, 1]) add(new THREE.ConeGeometry(.05, .16, 6), darkM, [s * .08, .16, -.02], null, headG);
+      const hEye = add(new THREE.SphereGeometry(.035, 8, 6), pupilM, [.12, .05, .15], null, headG);
+      const hEye2 = hEye.clone(); hEye2.position.x = -.12; headG.add(hEye2);
+      add(new THREE.BoxGeometry(.06, .3, .6), darkM, [0, 1.62, .55], null, body).rotation.x = -.7;
+      const tail = add(new THREE.ConeGeometry(.09, .7, 6), darkM, [0, 1.05, -.95]); tail.rotation.x = 2.4;
+
+      function leg(sx, sz) {
+        const hip = new THREE.Group(); hip.position.set(sx * .2, .95, sz); body.add(hip);
+        const up = new THREE.Mesh(new THREE.CylinderGeometry(.07, .06, .45, 8), cm); up.position.y = -.22; up.castShadow = true; hip.add(up);
+        const kn = new THREE.Group(); kn.position.y = -.45; hip.add(kn);
+        const lo = new THREE.Mesh(new THREE.CylinderGeometry(.05, .04, .45, 8), cm); lo.position.y = -.22; lo.castShadow = true; kn.add(lo);
+        const hf = new THREE.Mesh(new THREE.BoxGeometry(.09, .09, .16), darkM); hf.position.set(0, -.46, .03); kn.add(hf);
+        return { hip, kn };
+      }
+      const fl = leg(1, .55), fr = leg(-1, .55), bl = leg(1, -.55), br = leg(-1, -.55);
+      const rider = new THREE.Group(); rider.position.set(0, 1.35, .05); body.add(rider);
+      add(new THREE.SphereGeometry(.14, 10, 8), jm, [0, 0, 0], null, rider);
+      const torso = add(new THREE.CylinderGeometry(.11, .15, .5, 8), jm, [0, .28, .12], null, rider); torso.rotation.x = .5;
+      const rHead = add(new THREE.SphereGeometry(.15, 12, 10), sm, [0, .55, .32], null, rider);
+      add(new THREE.SphereGeometry(.16, 12, 10), new THREE.MeshStandardMaterial({ color: cap, roughness: .4 }), [0, .6, .3], [1, .8, 1.05], rider);
+      const face = new THREE.Group(); rHead.add(face); const eyes = [];
+      for (const s of [-1, 1]) {
+        const eg = new THREE.Group(); eg.position.set(s * .06, .02, .13); face.add(eg);
+        eg.add(new THREE.Mesh(new THREE.SphereGeometry(.03, 8, 6), eyeWhiteM));
+        const p = new THREE.Mesh(new THREE.SphereGeometry(.014, 6, 5), pupilM); p.position.z = .02; eg.add(p); eyes.push(eg);
+      }
+      for (const s of [-1, 1]) {
+        const arm = add(new THREE.CylinderGeometry(.035, .04, .45, 6), jm, [s * .14, .3, .35], null, rider); arm.rotation.x = 1.1;
+        const legJ = add(new THREE.CylinderGeometry(.045, .05, .5, 6), new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: .6 }), [s * .18, -.15, .05], null, rider); legJ.rotation.x = .5;
+      }
+      return { root, body, headG, rider, fl, fr, bl, br, eyes, blink: 2 + Math.random() * 3, phase: Math.random() * 6.28,
+        speed: 0, y: 0, vy: 0, fin: false, finTime: 0, strokes: 0, nextStroke: 0, laneIdx: 0, laneZ: 0, skill: 1, intF: 1, hurdleIdx: 0, prevX: 0 };
+    }
+    
+    const player = makeHorse(0x8a5a2b, 0xffd23f, 0xffd23f, 0xe8b48c);
+    const ai1 = makeHorse(0x3a2a1a, 0xff3b30, 0xff3b30, 0xc98d63);
+    const ai2 = makeHorse(0xb8b8b0, 0x2a8fff, 0x2a8fff, 0xf0c9a8);
+    player.laneZ = 0; player.laneIdx = 0;
+    ai1.laneZ = -2.4; ai1.laneIdx = 1; ai1.name = 'РЕКС'; ai1.skill = 1.0; ai1.intF = 1.0;
+    ai2.laneZ = 2.4; ai2.laneIdx = 2; ai2.name = 'МАКС'; ai2.skill = .95; ai2.intF = 1.06;
+    const horses = [player, ai1, ai2];
+    horses.forEach(h => { h.root.position.set(0, 0, h.laneZ); h.root.rotation.y = Math.PI / 2; scene.add(h.root); });
+
+    const PMAX = 400;
+    const pGeo = new THREE.BufferGeometry();
+    const pPos = new Float32Array(PMAX * 3), pCol = new Float32Array(PMAX * 3), pVel = new Float32Array(PMAX * 3), pLife = new Float32Array(PMAX), pMax = new Float32Array(PMAX);
+    pPos.fill(-999);
+    pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+    pGeo.setAttribute('color', new THREE.BufferAttribute(pCol, 3));
+    const points = new THREE.Points(pGeo, new THREE.PointsMaterial({ size: .25, map: dotTex, transparent: true, depthWrite: false, vertexColors: true, opacity: .7 }));
+    points.frustumCulled = false; scene.add(points);
+    let pCur = 0;
+
+    function puff(x, z, pow, gy) {
+      for (let i = 0; i < 6; i++) {
+        const a = Math.random() * Math.PI * 2, sp = (.3 + Math.random() * .5) * pow;
+        const j = pCur++ % PMAX, i3 = j * 3;
+        pPos[i3] = x + (Math.random() - .5) * .3; pPos[i3 + 1] = gy + .05; pPos[i3 + 2] = z + (Math.random() - .5) * .4;
+        pVel[i3] = Math.cos(a) * sp * .4; pVel[i3 + 1] = .3 + Math.random() * .5; pVel[i3 + 2] = Math.sin(a) * sp * .4;
+        pLife[j] = pMax[j] = .4 + Math.random() * .3; pCol[i3] = .72; pCol[i3 + 1] = .6; pCol[i3 + 2] = .42;
+      }
+    }
+
+    let AC = null, muted = false, noiseBuf = null;
+    function ac() {
+      try {
+        if (!AC) {
+          AC = new(window.AudioContext || window.webkitAudioContext)();
+          noiseBuf = AC.createBuffer(1, AC.sampleRate * .2, AC.sampleRate);
+          const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+        }
+        if (AC.state === 'suspended') AC.resume(); return AC;
+      } catch(e) { return null; }
+    }
+    function hoofSnd() {
+      if (muted) return; const c = ac(); if (!c) return;
+      try {
+        const t = c.currentTime, s = c.createBufferSource(); s.buffer = noiseBuf;
+        const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 300 + Math.random() * 150; f.Q.value = .6;
+        const g = c.createGain(); g.gain.setValueAtTime(.3, t); g.gain.exponentialRampToValueAtTime(.01, t + .1);
+        s.connect(f); f.connect(g); g.connect(c.destination); s.start(t); s.stop(t + .12);
+      } catch(e) {}
+    }
+    function thudSnd() {
+      if (muted) return; const c = ac(); if (!c) return;
+      try {
+        const t = c.currentTime, o = c.createOscillator(), g = c.createGain();
+        o.type = 'sawtooth'; o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(40, t + .25);
+        g.gain.setValueAtTime(.5, t); g.gain.exponentialRampToValueAtTime(.01, t + .3);
+        o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + .3);
+      } catch(e) {}
+    }
+    function beep(freq, dur = .12, delay = 0, vol = .22) {
+      if (muted) return; const c = ac(); if (!c) return;
+      try {
+        const t = c.currentTime + delay, o = c.createOscillator(), g = c.createGain();
+        o.type = 'square'; o.frequency.value = freq;
+        g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.01, t + dur);
+        o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur);
+      } catch(e) {}
+    }
+
+    // === 🛡 ГИБРИДНАЯ ОЧЕРЕДЬ РЕЧИ С ПОДДЕРЖКОЙ КОЛБЭКА ===
+    let ruVoice = null, speechQueue = [], isSpeaking = false, safetyTimer = null;
+
+    if ('speechSynthesis' in window) {
+      const pick = () => { try { ruVoice = speechSynthesis.getVoices().find(v => v.lang && v.lang.toLowerCase().indexOf('ru') === 0) || null; } catch(e) {} };
+      pick(); if (speechSynthesis.onvoiceschanged !== undefined) speechSynthesis.onvoiceschanged = pick;
+    }
+
+    function unblockMenuBtn() {
+      if (menuBtnBlocked) {
+        menuBtnBlocked = false;
+        const menuBtn = document.getElementById('menuBtn');
+        if (menuBtn) menuBtn.disabled = false;
+      }
+      if (safetyTimer) { clearTimeout(safetyTimer); safetyTimer = null; }
+    }
+
+    function processSpeechQueue() {
+      if (muted || speechQueue.length === 0) { 
+        unblockMenuBtn(); 
+        return; 
+      }
+      if (isSpeaking) return;
+      
+      isSpeaking = true;
+      const item = speechQueue.shift();
+      try {
+        const u = new SpeechSynthesisUtterance(item.text);
+        u.lang = 'ru-RU'; if (ruVoice) u.voice = ruVoice;
+        u.rate = item.rate || 1; u.pitch = item.pitch || 1; u.volume = 1;
+        
+        const finish = () => {
+          isSpeaking = false;
+          if (safetyTimer) { clearTimeout(safetyTimer); safetyTimer = null; }
+          // Вызываем колбэк, если он есть
+          if (typeof item.onEnd === 'function') {
+            try { item.onEnd(); } catch(e) { console.warn('Колбэк речи ошибка:', e); }
+          }
+          if (speechQueue.length === 0) unblockMenuBtn();
+          else processSpeechQueue();
+        };
+        u.onend = finish; u.onerror = finish;
+        
+        // 🛡 СТРАХОВОЧНЫЙ ТАЙМЕР: 15 секунд
+        safetyTimer = setTimeout(() => {
+          console.warn('Speech synthesis timeout: принудительная разблокировка');
+          try { speechSynthesis.cancel(); } catch(e) {}
+          finish();
+        }, 15000);
+        
+        speechSynthesis.speak(u);
+      } catch (e) {
+        console.warn('Критическая ошибка речи:', e);
+        isSpeaking = false;
+        if (safetyTimer) { clearTimeout(safetyTimer); safetyTimer = null; }
+        if (typeof item.onEnd === 'function') {
+          try { item.onEnd(); } catch(err) {}
+        }
+        if (speechQueue.length === 0) unblockMenuBtn(); 
+        else processSpeechQueue();
+      }
+    }
+
+    function speak(text, rate = 1, pitch = 1, onEnd = null) {
+      if (!('speechSynthesis' in window)) {
+        if (typeof onEnd === 'function') onEnd();
+        return;
+      }
+      speechQueue.push({ text, rate, pitch, onEnd });
+      processSpeechQueue();
+    }
+
+    function stopSpeak() {
+      if ('speechSynthesis' in window) { try { speechSynthesis.cancel(); } catch (e) {} }
+      speechQueue = []; isSpeaking = false;
+      if (safetyTimer) { clearTimeout(safetyTimer); safetyTimer = null; }
+      unblockMenuBtn();
+    }
+
+    document.getElementById('sndBtn').addEventListener('pointerdown', function(e) {
+      e.stopPropagation(); muted = !muted; this.textContent = muted ? '🔇' : '🔊';
+      if (muted) stopSpeak(); else ac();
+    });
+
+    document.addEventListener('touchstart', function() { ac(); }, { once: true, passive: true });
+    document.addEventListener('click', function() { ac(); }, { once: true, passive: true });
+
+    const $ = id => document.getElementById(id);
+    const hud = $('hud'), timeEl = $('time'), speedEl = $('speed'), sbarI = $('sbar').firstElementChild,
+          rateEl = $('rate'), posEl = $('pos'), hintEl = $('hint'), cdTxt = $('cdTxt'),
+          menuOvl = $('menu'), finOvl = $('finish'), fRows = $('fRows'), fPlace = $('fPlace'), ffTxt = $('ffTxt');
+
+    function fmt(t) {
+      const m = Math.floor(t / 60), s = Math.floor(t % 60), h = Math.floor((t * 100) % 100);
+      return m + ':' + String(s).padStart(2, '0') + '.' + String(h).padStart(2, '0');
+    }
+
+    const copyBtn = $('copyBtn'), phoneRaw = '89202275676';
+    copyBtn.addEventListener('click', async function(e) {
+      e.stopPropagation();
+      try {
+        if (navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(phoneRaw);
+        else {
+          const ta = document.createElement('textarea'); ta.value = phoneRaw; ta.style.position = 'fixed'; ta.style.opacity = '0';
+          document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+        }
+        this.textContent = '✅ Скопировано!'; this.classList.add('ok');
+        setTimeout(() => { this.textContent = '📋 Копировать номер'; this.classList.remove('ok'); }, 2200);
+      } catch (err) {
+        this.textContent = '⚠ Скопируйте вручную';
+        setTimeout(() => { this.textContent = '📋 Копировать номер'; }, 2500);
+      }
+    });
+
+    function updateDiffUI() {
+      document.querySelectorAll('.dBtn').forEach(b => b.classList.toggle('sel', b.dataset.d === diff));
+      $('boostPct').textContent = '+' + Math.round((aiMul() - 1) * 100) + '%';
+    }
+    document.querySelectorAll('.dBtn').forEach(b => b.addEventListener('click', function() {
+      diff = this.dataset.d; localStorage.setItem('horse_diff', diff); updateDiffUI();
+    }));
+    updateDiffUI();
+
+    function resultsData() {
+      const list = [
+        { name: 'ТЫ', c: '#ffd23f', t: player.fin ? player.finTime : -1, z: player.root.position.x, you: 1, speakName: 'ты' },
+        { name: ai1.name, c: '#ff3b30', t: ai1.fin ? ai1.finTime : -1, z: ai1.root.position.x, speakName: ai1.name },
+        { name: ai2.name, c: '#2a8fff', t: ai2.fin ? ai2.finTime : -1, z: ai2.root.position.x, speakName: ai2.name },
+      ];
+      list.sort((a, b) => {
+        const af = a.t >= 0, bf = b.t >= 0;
+        if (af && bf) return a.t - b.t; if (af) return -1; if (bf) return 1; return b.z - a.z;
+      });
+      return list;
+    }
+
+    function renderResults() {
+      const list = resultsData(), medals = ['🥇', '', ''];
+      fRows.innerHTML = list.map((r, i) => `<div class="fRow${r.you ? ' you' : ''}">
+        <span class="fPos">${medals[i]}</span><span class="fName"><i class="fDot" style="background:${r.c}"></i>${r.name}</span>
+        <span class="fT">${r.t >= 0 ? fmt(r.t) : '…'}</span></div>`).join('');
+      const myPos = list.findIndex(r => r.you) + 1;
+      fPlace.textContent = ['ЗОЛОТО!', 'СЕРЕБРО', 'БРОНЗА'][myPos - 1] + ' · ' + myPos + '-е место';
+      const w = list[0];
+      $('fWinner').textContent = w.t >= 0 ? ('🏆 Победитель: ' + w.name) : '🏆 Победитель: …';
+    }
+
+    function doStroke(s, isPlayer, imp) {
+      s.strokes++;
+      if (imp === undefined) imp = Math.max(.5, IMP * (1.05 - s.speed / 14));
+      s.speed = Math.min(MAXV, s.speed + imp);
+      if (isPlayer) { hoofSnd(); strokeTimes.push(performance.now()); hintEl.classList.remove('beat'); void hintEl.offsetWidth; hintEl.classList.add('beat'); }
+    }
+    function doJump(s, isPlayer) {
+      if (state !== 'race' || s.fin || s.y > 0.02) return;
+      s.vy = JUMPV; if (isPlayer) puff(s.root.position.x, s.laneZ, .8, s.y);
+    }
+    function stumble(s, h, isPlayer) {
+      h.knocked = true; s.speed *= .35; thudSnd(); puff(s.root.position.x, s.laneZ, 1.4, .5);
+      if (isPlayer) speak('Сбил барьер!', 1.2, 0.9);
+    }
+    const cdTimers = [];
+    function cdShow(txt) { cdTxt.textContent = txt; cdTxt.classList.remove('pop'); void cdTxt.offsetWidth; cdTxt.classList.add('pop'); }
+
+    function startRace() {
+      for (let i = 0; i < 4; i++) clearTimeout(cdTimers[i]);
+      stopSpeak();
+      horses.forEach(h => {
+        h.root.position.set(0, 0, h.laneZ); h.speed = 0; h.y = 0; h.vy = 0; h.phase = Math.random() * 6.28;
+        h.fin = false; h.finTime = 0; h.strokes = 0; h.hurdleIdx = 0; h.prevX = 0;
+        if (h !== player) h.nextStroke = .2 + Math.random() * .15;
+      });
+      hurdles.forEach(lane => lane.forEach(h => { h.knocked = false; h.fall = 0; h.g.rotation.z = 0; h.g.position.y = 0; }));
+      strokeTimes = []; raceTime = 0; state = 'count'; resultsShown = false;
+      menuOvl.classList.add('hide'); finOvl.classList.add('hide'); hud.classList.add('on'); updateDiffUI();
+      cdShow('НА СТАРТ'); beep(620, .1); speak('На старт!', .95);
+      cdTimers[0] = setTimeout(() => { cdShow('ВНИМАНИЕ'); beep(620, .1); speak('Внимание', .9); }, 950);
+      cdTimers[1] = setTimeout(() => {
+        cdShow('МАРШ!'); beep(1240, .35, 0, .3); speak('Марш!', 1.15, 1.25); state = 'race';
+        horses.forEach(h => { h.speed = 2.5; puff(h.root.position.x, h.laneZ, 1.2, 0); });
+      }, 1900);
+      cdTimers[2] = setTimeout(() => cdTxt.classList.remove('pop'), 2700);
+    }
+
+    function livePos() { return 1 + ((ai1.root.position.x > player.root.position.x) + (ai2.root.position.x > player.root.position.x)); }
+
+    function finishRace() {
+      state = 'fin'; player.fin = true; player.finTime = raceTime; player.speed = 0;
+      races++; localStorage.setItem('horse_races', String(races));
+      ffTxt.classList.remove('pop'); void ffTxt.offsetWidth; ffTxt.classList.add('pop');
+      beep(523, .12); beep(659, .12, .13); beep(784, .28, .26);
+      speak('Финиш!', 1.05, 1.1);
+      
+      cdTimers[3] = setTimeout(() => {
+        $('fTitle').textContent = 'ИГРА ОКОНЧЕНА'; $('fTime').textContent = fmt(player.finTime);
+        const best = parseFloat(localStorage.getItem('horse_best') || '0');
+        const bEl = $('fBest');
+        if (!best || player.finTime < best) {
+          localStorage.setItem('horse_best', player.finTime); bEl.textContent = '🎉 НОВЫЙ РЕКОРД!'; bEl.className = 'rec';
+        } else { bEl.textContent = 'Рекорд: ' + fmt(best); bEl.className = ''; }
+        $('fStats').textContent = 'Сложность: ' + DIFFS[diff].name + ' · шагов: ' + player.strokes;
+        $('fNext').textContent = '🔥 В следующей игре соперники будут +' + Math.round((aiMul() - 1) * 100) + '% быстрее';
+        renderResults(); resultsShown = true; resTimer = 0; finOvl.classList.remove('hide');
+
+        // 🔒 БЛОКИРУЕМ кнопку
+        menuBtnBlocked = true;
+        const menuBtn = document.getElementById('menuBtn');
+        if (menuBtn) menuBtn.disabled = true;
+
+        const list = resultsData();
+        const myPos = list.findIndex(r => r.you) + 1;
+        const placeSp = ['Ты занял первое место.', 'Ты занял второе место.', 'Ты занял третье место.'][myPos - 1] || 'Гонка завершена.';
+        const w = list[0];
+        const winSp = (w.you) ? 'Победил ты!' : 'Победил ' + w.speakName + '.';
+        const resultText = 'Игра окончена. ' + placeSp + ' ' + winSp;
+        
+        // 🔓 ГАРАНТИРОВАННАЯ РАЗБЛОКИРОВКА после завершения речи
+        speak(resultText, 1, 1, function() {
+          unblockMenuBtn();
+        });
+        
+        // Дополнительная страховка: если по какой-то причине колбэк не сработает
+        setTimeout(function() {
+          if (menuBtnBlocked) unblockMenuBtn();
+        }, 16000);
+        
+      }, 1200);
+    }
+
+    function toMenu() {
+      if (menuBtnBlocked) return;
+      state = 'menu'; stopSpeak(); finOvl.classList.add('hide'); menuOvl.classList.remove('hide');
+      hud.classList.remove('on'); updateDiffUI();
+    }
+
+    function input() { ac(); if (state === 'race' && !player.fin) doStroke(player, true); }
+
+    addEventListener('keydown', function(e) {
+      if (e.code === 'Space') {
+        e.preventDefault(); if (!e.repeat) { if (state === 'menu') startRace(); else if (state === 'race') input(); }
+      }
+      if ((e.code === 'ArrowUp' || e.code === 'KeyW') && !e.repeat) { e.preventDefault(); doJump(player, true); }
+      if (e.code === 'Enter' && state === 'menu') startRace();
+    });
+
+    addEventListener('pointerdown', function(e) {
+      if (e.target.closest('button') || e.target.closest('a')) return;
+      ac(); if (state === 'race' && !player.fin) doStroke(player, true);
+    });
+    addEventListener('touchstart', function(e) {
+      if (e.target.closest('button') || e.target.closest('a')) return;
+      ac(); if (state === 'race' && !player.fin) doStroke(player, true);
+    }, { passive: true });
+
+    function bindTouchAndPointer(elem, action) {
+      elem.addEventListener('pointerdown', function(e) { e.stopPropagation(); e.preventDefault(); ac(); action(); });
+      elem.addEventListener('touchstart', function(e) { e.stopPropagation(); e.preventDefault(); ac(); action(); }, { passive: false });
+    }
+    bindTouchAndPointer($('jumpBtn'), () => doJump(player, true));
+    bindTouchAndPointer($('startBtn'), startRace);
+    bindTouchAndPointer($('menuBtn'), toMenu);
+
+    const clock = new THREE.Clock(), camPos = new THREE.Vector3();
+
+    function tick() {
+      requestAnimationFrame(tick);
+      const dt = Math.min(clock.getDelta(), .05); T += dt; if (state === 'race') raceTime += dt;
+
+      horses.forEach(h => {
+        if (state === 'race' && !h.fin && h !== player) {
+          if (raceTime >= h.nextStroke) {
+            const D = DIFFS[diff], mul = aiMul();
+            const imp = D.imp * h.skill * (0.92 + Math.random() * .16); doStroke(h, false, imp);
+            const lead = h.root.position.x - player.root.position.x;
+            const adj = Math.max(-120, Math.min(170, lead * D.rubber));
+            h.nextStroke = raceTime + Math.max(.15, (D.int * h.intF) / mul + adj / 1000 + Math.random() * .05);
+          }
+          if (h.hurdleIdx < HX.length) {
+            const dist = HX[h.hurdleIdx] - h.root.position.x;
+            if (dist < h.speed * .38 + 1.2 && h.y <= 0.02) doJump(h, false);
+          }
+        }
+        if (h === player && state === 'race' && !h.fin && h.root.position.x >= RACE) finishRace();
+        if (h !== player && !h.fin && h.root.position.x >= RACE) { h.fin = true; h.finTime = raceTime; }
+
+        const frozen = h.fin;
+        h.speed -= h.speed * DRAG * dt * (frozen ? 4 : 1); if (h.speed < 0) h.speed = 0;
+        const nx = h.root.position.x + h.speed * dt; if (h.root.position.x < RACE + 1.5) h.root.position.x = nx;
+
+        if (!frozen && h.hurdleIdx < HX.length) {
+          const hx = HX[h.hurdleIdx];
+          if (h.prevX < hx && h.root.position.x >= hx) {
+            const H = hurdles[h.laneIdx][h.hurdleIdx];
+            const failP = (h === player) ? (h.y < 0.5) : (h.y < 0.5 || Math.random() < DIFFS[diff].fail);
+            if (failP) stumble(h, H, h === player); h.hurdleIdx++;
+          }
+        }
+        h.prevX = h.root.position.x;
+
+        if (h.y > 0 || h.vy > 0) {
+          h.y += h.vy * dt; h.vy -= G * dt;
+          if (h.y <= 0) { h.y = 0; h.vy = 0; puff(h.root.position.x, h.laneZ, .7, 0); }
+        }
+        h.root.position.y = h.y;
+
+        h.phase += dt * (2 + h.speed * 2.0);
+        const amp = Math.min(1, h.speed / MAXV * 1.4), air = h.y > 0.1;
+        if (!frozen && h.speed > .3) {
+          const p = h.phase;
+          if (air) {
+            h.fl.hip.rotation.x = -1.4; h.fr.hip.rotation.x = -1.3; h.fl.kn.rotation.x = .9; h.fr.kn.rotation.x = .8;
+            h.bl.hip.rotation.x = 1.2; h.br.hip.rotation.x = 1.3; h.bl.kn.rotation.x = .7; h.br.kn.rotation.x = .8;
+          } else {
+            h.fl.hip.rotation.x = Math.sin(p) * 1.0 * amp; h.fr.hip.rotation.x = Math.sin(p + .6) * 1.0 * amp;
+            h.bl.hip.rotation.x = -Math.sin(p + 2.4) * 1.0 * amp; h.br.hip.rotation.x = -Math.sin(p + 3.0) * 1.0 * amp;
+            h.fl.kn.rotation.x = Math.max(0, -Math.sin(p)) * .9; h.fr.kn.rotation.x = Math.max(0, -Math.sin(p + .6)) * .9;
+            h.bl.kn.rotation.x = Math.max(0, Math.sin(p + 2.4)) * .9; h.br.kn.rotation.x = Math.max(0, Math.sin(p + 3.0)) * .9;
+          }
+          h.body.position.y = Math.abs(Math.sin(p * 2)) * .06 * amp;
+          h.body.rotation.x = (air ? -h.vy * .02 : .05 + .04 * amp); h.rider.rotation.x = Math.sin(p * 2) * .12;
+        } else {
+          ['fl', 'fr', 'bl', 'br'].forEach(L => { h[L].hip.rotation.x *= Math.max(0, 1 - dt * 4); h[L].kn.rotation.x *= Math.max(0, 1 - dt * 4); });
+          h.body.rotation.x *= Math.max(0, 1 - dt * 4); h.rider.rotation.x *= Math.max(0, 1 - dt * 4);
+        }
+
+        h.blink -= dt; if (h.blink < 0) h.blink = 2 + Math.random() * 3;
+        const bl = h.blink < .12 ? .15 : 1;
+        h.eyes.forEach(e => { e.scale.y += (bl - e.scale.y) * Math.min(1, dt * 25); });
+
+        if (!frozen && h.speed > 1 && !air) {
+          h._p = (h._p || 0) + dt; if (h._p > .14) { h._p = 0; puff(h.root.position.x - .3, h.laneZ, h.speed / MAXV * .7, 0); }
+        }
+      });
+
+      hurdles.forEach(lane => lane.forEach(h => {
+        if (h.knocked && h.fall < 1.2) { h.fall += dt * 3; h.g.rotation.z = -Math.min(1.2, h.fall); h.g.position.y = -Math.min(1.2, h.fall) * .25; }
+      }));
+
+      for (let i = 0; i < PMAX; i++) {
+        if (pLife[i] > 0) {
+          pLife[i] -= dt; if (pLife[i] <= 0) { pPos[i * 3 + 1] = -999; continue; }
+          const i3 = i * 3; pVel[i3 + 1] -= 1.5 * dt;
+          pPos[i3] += pVel[i3] * dt; pPos[i3 + 1] += pVel[i3 + 1] * dt; pPos[i3 + 2] += pVel[i3 + 2] * dt;
+          if (pPos[i3 + 1] < .02 && pVel[i3 + 1] < 0) { pPos[i3 + 1] = .02; pVel[i3 + 1] *= -.2; }
+          const f = pLife[i] / pMax[i]; pCol[i3] *= f; pCol[i3 + 1] *= f; pCol[i3 + 2] *= f;
+        }
+      }
+      pGeo.attributes.position.needsUpdate = true; pGeo.attributes.color.needsUpdate = true;
+
+      if (state === 'menu') {
+        orbitA += dt * .12; camPos.set(RACE * .5 + Math.sin(orbitA) * 40, 10, Math.cos(orbitA) * 40);
+        camera.position.lerp(camPos, Math.min(1, dt * 2)); camera.lookAt(RACE * .5, 1, 0);
+      } else {
+        const px = Math.min(player.root.position.x, RACE + 1.5);
+        camPos.set(px - 7, 3.2, -9.5); camera.position.lerp(camPos, Math.min(1, dt * 4));
+        camera.lookAt(px, 1 + player.y * .5, 0);
+      }
+      sun.position.set(player.root.position.x + 15, 35, -20); sun.target.position.set(player.root.position.x, 0, 0);
+
+      if (state === 'fin' && resultsShown && (!ai1.fin || !ai2.fin)) { resTimer += dt; if (resTimer > .2) { resTimer = 0; renderResults(); } }
+
+      if (state === 'race' || state === 'fin') {
+        timeEl.textContent = fmt(player.fin ? player.finTime : raceTime);
+        speedEl.textContent = Math.round(player.speed * 3.6);
+        sbarI.style.width = Math.min(100, player.speed / MAXV * 100) + '%';
+        const now = performance.now(); strokeTimes = strokeTimes.filter(t => now - t < 2500);
+        rateEl.textContent = Math.round(strokeTimes.length / 2.5 * 60);
+        posEl.textContent = (player.fin ? resultsData().findIndex(r => r.you) + 1 : livePos()) + '/3';
+      }
+      renderer.render(scene, camera);
+    }
+    tick();
+
+    addEventListener('resize', function() {
+      camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight);
+    });
+    document.addEventListener('touchmove', function(e) {
+      if (e.target.closest('#menu') || e.target.closest('#finish')) return; e.preventDefault();
+    }, { passive: false });
+
+  })();
+</script>
+</body>
+</html>
