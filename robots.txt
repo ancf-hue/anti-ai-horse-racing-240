@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://anti-ai-horse-racing-240.vercel.app/sitemap.xml
